@@ -6,28 +6,51 @@ const breaker = new CircuitBreaker({
     resetTimeout: 5000
 })
 
-// Test initial state
-console.log('Initial state:', CircuitState[breaker.getState()])
+const mockExternalCall = async (shouldFail: boolean): Promise<string> => {
+    if (shouldFail) {
+        throw new Error('External service error')
+    }
+    return 'Success'
+}
 
-// Test failures until circuit opens
-breaker.recordFailure()
-console.log('After 1 failure:', CircuitState[breaker.getState()])
+async function runTest() {
+    console.log('Initial state:', CircuitState[breaker.getState()])
 
-breaker.recordFailure()
-console.log('After 2 failures:', CircuitState[breaker.getState()])
+    try {
+        await breaker.execute(() => mockExternalCall(true))
+    } catch (error) {
+        console.log('Failure 1:', CircuitState[breaker.getState()])
+    }
 
-breaker.recordFailure()
-console.log('After 3 failures:', CircuitState[breaker.getState()])
+    try {
+        await breaker.execute(() => mockExternalCall(true))
+    } catch (error) {
+        console.log('Failure 2:', CircuitState[breaker.getState()])
+    }
 
-// Test reset timeout behavior
-setTimeout(() => {
+    try {
+        await breaker.execute(() => mockExternalCall(true))
+    } catch (error) {
+        console.log('Failure 3:', CircuitState[breaker.getState()])
+    }
+
+    try {
+        await breaker.execute(() => mockExternalCall(true))
+    } catch (error) {
+        console.log('Failure 4 (circuit open):', CircuitState[breaker.getState()])
+    }
+
+    console.log('Waiting for reset timeout...')
+    await new Promise(resolve => setTimeout(resolve, 6000))
     console.log('After timeout:', CircuitState[breaker.getState()])
 
-    // Try a successful call
-    breaker.recordSuccess()
-    console.log('After success in half-open:', CircuitState[breaker.getState()])
+    try {
+        const result = await breaker.execute(() => mockExternalCall(false))
+        console.log('Success result:', result)
+        console.log('After success:', CircuitState[breaker.getState()])
+    } catch (error) {
+        console.log('Unexpected error:', error)
+    }
+}
 
-    // Try another failure
-    breaker.recordFailure()
-    console.log('After failure in closed:', CircuitState[breaker.getState()])
-}, 6000)
+runTest()

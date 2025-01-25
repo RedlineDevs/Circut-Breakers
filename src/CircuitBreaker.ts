@@ -66,4 +66,19 @@ export class CircuitBreaker {
         }
         return this.state === CircuitState.OPEN
     }
+
+    async execute<T>(fn: () => Promise<T>): Promise<T> {
+        if (this.isOpen()) {
+            throw new Error('Circuit breaker is open')
+        }
+
+        try {
+            const result = await fn()
+            this.recordSuccess()
+            return result
+        } catch (error) {
+            this.recordFailure()
+            throw error
+        }
+    }
 }
