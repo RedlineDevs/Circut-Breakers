@@ -20,6 +20,8 @@ bc why not?
 
 ```bash
 git clone https://github.com/RedlineDevs/Circut-Breakers.git
+cd Circut-Breakers
+yarn install
 ```
 
 ## Quick Start
@@ -36,16 +38,20 @@ const breaker = new CircuitBreaker({
 // Wrap your function calls
 try {
     const result = await breaker.execute(async () => {
-        // Your async operation here
-        return await someApiCall()
+        return await fetch('https://api.example.com/data')
     })
 } catch (error) {
-    // Handle the error
+    if (error.message === 'Circuit breaker is open') {
+        console.log('Service is unavailable, try again later')
+    } else {
+        console.log('Request failed:', error)
+    }
 }
 
-// Listen to state changes
+// Monitor state changes
 breaker.onStateChange(event => {
     console.log(`Circuit changed from ${event.previousState} to ${event.currentState}`)
+    console.log(`Current failure count: ${event.failureCount}`)
 })
 ```
 
@@ -53,22 +59,39 @@ breaker.onStateChange(event => {
 
 The circuit breaker works like an electrical circuit breaker (hence the name):
 
-1. In normal operation, it's CLOSED and calls pass through
-2. When failures hit the threshold, it OPENS and fast-fails calls
-3. After a timeout, it goes HALF-OPEN to test if the problem is fixed
-4. Success in HALF-OPEN closes the circuit; failure opens it again
+1. **CLOSED State (Normal Operation)**
+   - All calls pass through normally
+   - Failures are counted
+   - After `failureThreshold` consecutive failures, switches to OPEN
+
+2. **OPEN State (Failure Prevention)**
+   - All calls fail fast without hitting the service
+   - After `resetTimeout` milliseconds, switches to HALF-OPEN
+
+3. **HALF-OPEN State (Recovery Testing)**
+   - Allows one test call through
+   - Success switches to CLOSED
+   - Failure switches back to OPEN
 
 ## Development
 
 ```bash
 # Install dependencies
-yarn
+yarn install
 
 # Run tests
 yarn dev
+
+# Try the HTTP API example
+ts-node examples/mock-server.ts  # Terminal 1
+ts-node examples/http-api.ts     # Terminal 2
 ```
 
-## What I Learned
+## Examples
+
+Check out the `examples/` directory for:
+- HTTP API integration (`http-api.ts`)
+- Mock server for testing (`mock-server.ts`)
 
 Building this helped me understand:
 - The importance of proper state management
